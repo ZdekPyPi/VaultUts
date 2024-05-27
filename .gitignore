@@ -7,3 +7,7 @@ logs
 *.pypirc
 pypirc
 *pypirc
+
+*.env
+env
+*env
