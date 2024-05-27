@@ -3,6 +3,7 @@ LICENCE.txt
 MANIFEST.in
 README.md
 commands.txt
+run.py
 setup.py
 vaultUts/__init__.py
 vaultUts.egg-info/PKG-INFO

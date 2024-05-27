@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: vaultUts
-Version: 1.0.1
+Version: 1.0.2
 Summary: An orm package
 Home-page: 
 Author: Melque Lima
@@ -23,6 +23,10 @@ Requires-Dist: requests
 ```sh
 pip install vaultUts
 ```
+
+
+## GitHub
+https://github.com/ZdekPyPi/VaultUts
 
 ### Usage
 #
