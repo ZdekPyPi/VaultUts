@@ -8,9 +8,7 @@ pip install vaultUts
 
 
 ## GitHub
-https://github.com/ZdekPyPi/PipefyUts
-
-
+https://github.com/ZdekPyPi/VaultUts
 
 ### Usage
 #
