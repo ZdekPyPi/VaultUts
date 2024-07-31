@@ -4,3 +4,7 @@ Change Log
 0.0.1 (2024-05-02)
 ------------------
 - First Release
+
+1.0.3 (2024-07-31)
+------------------
+- Variable types from ini file fixed
