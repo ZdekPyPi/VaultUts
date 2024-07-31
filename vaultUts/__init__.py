@@ -1,6 +1,7 @@
 import configparser as cp
 import requests
 import json
+from datetime import datetime
 
 class VaultLib:
     def __init__(self,host,token:str,in_prd:bool=True,dev_ini_file=None):
@@ -8,6 +9,35 @@ class VaultLib:
         self.host         = host
         self.in_prd       = in_prd
         self.dev_ini_file = dev_ini_file
+    
+    def format_data(self,dtClass,k,v):
+        cls = dtClass.__annotations__[k]
+        if cls == tuple:
+            name =  f"{str(dtClass)}_{k}"
+            if not name in self.delimiters:
+                isFormatDefined = k in [x for x in dir(dtClass) if not re.search("__.*__", x)]
+                delimiter = getattr(dtClass,k) if isFormatDefined else ','
+                self.delimiters[name]=delimiter
+                a = 2
+
+            v = tuple(v.split(self.delimiters[name]))
+        elif cls == datetime:
+            name =  f"{str(dtClass)}_{k}"
+            if not name in self.dateFormats:
+                isFormatDefined = k in [x for x in dir(dtClass) if not re.search("__.*__", x)]
+                delimiter = getattr(dtClass,k) if isFormatDefined else '%Y-%m-%d'
+                self.dateFormats[name]=delimiter
+                a = 2
+
+            v = datetime.strptime(v,self.dateFormats[name])
+        elif cls == bool:
+            val = v.strip().lower()
+            v = True if val and val in ['true','1','y'] else False
+            v = False if val in ['false','','0','n'] else True
+
+        else:
+            v = cls(v)
+        return v
     
     def getVault(self,path):
         url = f"{self.host}/v1/{path}"
@@ -46,6 +76,7 @@ class VaultLib:
             for k, v in dt_dev.items():
                 if not k in dtClass.__annotations__:
                     raise Exception(f"key '{k}' not found in data class object")
+                v = self.format_data(dtClass,k,v)
                 setattr(dtClass, k, v)
         
     def link(self,path,create_missing=False,dev_section=None):
