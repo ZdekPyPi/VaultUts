@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: vaultUts
-Version: 1.0.2
+Version: 1.0.7
 Summary: An orm package
 Home-page: 
 Author: Melque Lima
@@ -59,3 +59,7 @@ Change Log
 0.0.1 (2024-05-02)
 ------------------
 - First Release
+
+1.0.3 (2024-07-31)
+------------------
+- Variable types from ini file fixed

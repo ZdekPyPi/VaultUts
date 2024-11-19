@@ -2,13 +2,28 @@ import configparser as cp
 import requests
 import json
 from datetime import datetime
+import types
 
-class VaultLib:
-    def __init__(self,host,token:str,in_prd:bool=True,dev_ini_file=None):
+def save(self):
+    data = {k:getattr(self,k) for k in self.__annotations__}
+    self.__vlt__.setVault(self.__params__["path"],data)
+
+def refresh(self):
+    #data = {k:getattr(self,k) for k in self.__annotations__}
+    self.__vlt__.vault2DataClass(**self.__params__)
+
+
+
+class VaultLib():
+    links = []
+
+
+    def __init__(self,host,token:str,in_prd:bool=True,dev_ini_file=None,time_exp_min=5):
         self.token        = token
         self.host         = host
         self.in_prd       = in_prd
         self.dev_ini_file = dev_ini_file
+        self.time_exp_min = time_exp_min
     
     def format_data(self,dtClass,k,v):
         cls = dtClass.__annotations__[k]
@@ -59,9 +74,15 @@ class VaultLib:
         return dc if not empty_as_null else {x:(y or None) for x,y in dc.items()}
 
     def vault2DataClass(self,path,dtClass,create_missing=False,dev_section=None):
-        vault = self.getVault(path)
-        dt_dev = self.Section2Dict(dev_section,fileIni=self.dev_ini_file) if dev_section else None
-        dtClass.vault_path = path
+        vault                    = self.getVault(path)
+        dt_dev                   = self.Section2Dict(dev_section,fileIni=self.dev_ini_file) if dev_section else None
+        #dtClass.vault_path       = path
+        dtClass.save             = types.MethodType(save, dtClass)
+        dtClass.refresh          = types.MethodType(refresh, dtClass)
+        dtClass.__vlt__          = self
+        dtClass.__params__       = {"path":path,"dtClass":dtClass,"create_missing":create_missing,"dev_section":dev_section}
+        self.links.append(dtClass)
+        
         for k, v in vault.items():
             if not k in dtClass.__annotations__:
                 if not create_missing and not create_missing:
@@ -78,7 +99,9 @@ class VaultLib:
                     raise Exception(f"key '{k}' not found in data class object")
                 v = self.format_data(dtClass,k,v)
                 setattr(dtClass, k, v)
+
         
+          
     def link(self,path,create_missing=False,dev_section=None):
         def wrap(function):
             self.vault2DataClass(path,function,create_missing,dev_section)
