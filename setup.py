@@ -10,7 +10,7 @@ classifiers = [
  
 setup(
   name='vaultUts',
-  version='1.0.7',
+  version='1.1.2',
   description='An orm package',
   long_description=open('README.md').read() + '\n\n' + open('CHANGELOG.txt').read(),
   long_description_content_type='text/markdown',

@@ -10,7 +10,7 @@ load_dotenv()
 
 #Pessoa.name
 vlt = VaultLib("","",in_prd=True)
-
+vlt = VaultLib("http://192.168.80.46:8200","",in_prd=True)
 
 @vlt.link("Teste/data/auth")
 class BotVault: 

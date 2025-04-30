@@ -3,10 +3,17 @@ import requests
 import json
 from datetime import datetime
 import types
+import re
 
 def save(self):
-    data = {k:getattr(self,k) for k in self.__annotations__}
-    self.__vlt__.setVault(self.__params__["path"],data)
+    payload = {}
+    for k in self.__annotations__:
+        value = getattr(self,k)
+        if isinstance(value,datetime):
+            payload[k]=datetime.strftime(value,self.__vlt__.dateFormats[k])
+        else:
+            payload[k]=value
+    self.__vlt__.setVault(self.__params__["path"],payload)
 
 def refresh(self):
     #data = {k:getattr(self,k) for k in self.__annotations__}
@@ -15,15 +22,17 @@ def refresh(self):
 
 
 class VaultLib():
-    links = []
+    links       = None
+    dateFormats = None
 
 
-    def __init__(self,host,token:str,in_prd:bool=True,dev_ini_file=None,time_exp_min=5):
-        self.token        = token
-        self.host         = host
-        self.in_prd       = in_prd
-        self.dev_ini_file = dev_ini_file
-        self.time_exp_min = time_exp_min
+    def __init__(self,host,token:str,in_prd:bool=True,dev_ini_file=None):
+        self.token           = token
+        self.host            = host
+        self.in_prd          = in_prd
+        self.dev_ini_file    = dev_ini_file
+        self.links           = []
+        self.dateFormats     = {}
     
     def format_data(self,dtClass,k,v):
         cls = dtClass.__annotations__[k]
@@ -37,18 +46,18 @@ class VaultLib():
 
             v = tuple(v.split(self.delimiters[name]))
         elif cls == datetime:
-            name =  f"{str(dtClass)}_{k}"
-            if not name in self.dateFormats:
+            if not k in self.dateFormats:
                 isFormatDefined = k in [x for x in dir(dtClass) if not re.search("__.*__", x)]
                 delimiter = getattr(dtClass,k) if isFormatDefined else '%Y-%m-%d'
-                self.dateFormats[name]=delimiter
+                self.dateFormats[k]=delimiter
                 a = 2
 
-            v = datetime.strptime(v,self.dateFormats[name])
+            v = datetime.strptime(v,self.dateFormats[k])
         elif cls == bool:
-            val = v.strip().lower()
-            v = True if val and val in ['true','1','y'] else False
-            v = False if val in ['false','','0','n'] else True
+            if not isinstance(v,bool):
+                val = v.strip().lower()
+                v = True if val and val in ['true','1','y'] else False
+                v = False if val in ['false','','0','n'] else True
 
         else:
             v = cls(v)
@@ -73,15 +82,31 @@ class VaultLib():
         dc = dict(config[section])
         return dc if not empty_as_null else {x:(y or None) for x,y in dc.items()}
 
-    def vault2DataClass(self,path,dtClass,create_missing=False,dev_section=None):
-        vault                    = self.getVault(path)
-        dt_dev                   = self.Section2Dict(dev_section,fileIni=self.dev_ini_file) if dev_section else None
+    def validate_get_env_key(self,path):
+        vault_data  = self.getVault(path)
+        if not "PRD" in vault_data: raise Exception(f"No PRD key found in {path}")
+        if not "DEV" in vault_data: raise Exception(f"No DEV key found in {path}")
+
+        return vault_data["PRD"] if self.in_prd else vault_data["DEV"]
+
+
+    def vault2DataClass(self,path,dtClass,create_missing=False,dev_section=None,switch_env_keys=False):
+        vault  = self.getVault(path)
+        
+        if switch_env_keys:
+            self.validate_get_env_key(path)
+            dt_dev = vault["DEV"]
+            vault  = vault["PRD"]
+        else:
+            dt_dev = self.Section2Dict(dev_section,fileIni=self.dev_ini_file) if dev_section else None
         #dtClass.vault_path       = path
         dtClass.save             = types.MethodType(save, dtClass)
         dtClass.refresh          = types.MethodType(refresh, dtClass)
         dtClass.__vlt__          = self
         dtClass.__params__       = {"path":path,"dtClass":dtClass,"create_missing":create_missing,"dev_section":dev_section}
-        self.links.append(dtClass)
+
+        if dtClass not in self.links:  
+            self.links.append(dtClass)
         
         for k, v in vault.items():
             if not k in dtClass.__annotations__:
@@ -89,11 +114,13 @@ class VaultLib():
                     raise Exception(f"please create the key '{k}' in data class object")
                 elif create_missing:
                     setattr(dtClass, k, v)
+                    continue
                 else:
                     continue
+            v = self.format_data(dtClass,k,v)
             setattr(dtClass, k, v)
 
-        if not self.in_prd and dev_section:
+        if not self.in_prd and (dev_section or switch_env_keys) :
             for k, v in dt_dev.items():
                 if not k in dtClass.__annotations__:
                     raise Exception(f"key '{k}' not found in data class object")
@@ -102,9 +129,9 @@ class VaultLib():
 
         
           
-    def link(self,path,create_missing=False,dev_section=None):
+    def link(self,path,create_missing=False,dev_section=None,switch_env_keys=False):
         def wrap(function):
-            self.vault2DataClass(path,function,create_missing,dev_section)
+            self.vault2DataClass(path,function,create_missing,dev_section,switch_env_keys)
             return function
         return wrap
 
